@@ -56,6 +56,17 @@ program.command('list-sets')
     }
   })
 
+const saveLorcanaImage = async (directory: string, imageUrl: string) => {
+  const splitImageUrl = imageUrl.split('/');
+  const imageFilename = splitImageUrl[splitImageUrl.length - 1];
+  const response = await axios({
+    method: 'get',
+    url: imageUrl,
+    responseType: 'stream'
+  });
+  await fs.promises.writeFile(`${directory}/${imageFilename}`, response.data);
+}
+
 program.command('list-cards')
   .description ('List cards')
   .requiredOption('-s, --set <number>', 'Filter by set number')
@@ -67,6 +78,35 @@ program.command('list-cards')
       const cardsFromSet = cards.filter(card => card.Set_Num === set)
       console.log(`Found ${cardsFromSet.length} cards from set number ${set}`);
 
+      console.log(cardsFromSet);
+    } catch(e) {
+      console.error('Error getting cards', e);
+    }
+  })
+
+program.command('save-card-images')
+  .description ('List cards')
+  .requiredOption('-s, --set <number>', 'Filter by set number')
+  .requiredOption('-l, --location <value>', 'Location to save cards', './lorcana-card-images')
+  .action(async (str, options) => {
+    try {
+      const {data: cards} = await axios.get<Card[]>(`${LORCANA_BASE}/${CARDS_PATH}`);
+      const opts = options.opts();
+      const set = opts.set ? Number(opts.set) : 1;
+      const directory = opts.location ?? './lorcana-card-images'
+      const cardsFromSet = cards.filter(card => card.Set_Num === set)
+      console.log(`Found ${cardsFromSet.length} cards from set number ${set}`);
+
+      if (!fs.existsSync(directory)) {
+        console.log(`Making directory ${directory} to put files in`);
+        fs.mkdirSync(directory);
+      } else {
+        console.log(`Using existing directory ${directory} to put files in`);
+      }
+      for (const card of cardsFromSet) {
+        await saveLorcanaImage(directory, card.Image);
+        await new Promise(r => setTimeout(r, 2000));
+      }
     } catch(e) {
       console.error('Error getting cards', e);
     }
