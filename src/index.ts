@@ -1,12 +1,11 @@
 import { Command }  from "commander";
 import figlet  from 'figlet';
 import fs from 'fs';
-import path from 'path';
 import axios from 'axios';
 
 const program = new Command();
 
-console.log(figlet.textSync("Dir Manager"));
+console.log(figlet.textSync("LorcanaPix"));
 
 const LORCANA_BASE = 'https://api.lorcana-api.com';
 const SETS_PATH = 'sets/fetch';
@@ -40,10 +39,6 @@ type Card = {
 program
   .version("1.0.0")
   .description("Lorcana image getter")
-  .option("-l, --ls  [value]", "List directory contents")
-  .option("-m, --mkdir <value>", "Create a directory")
-  .option("-t, --touch <value>", "Create a file")
-  .option("--list-sets", "Show available sets")
 
 program.command('list-sets')
   .description('Show available sets')
@@ -56,15 +51,17 @@ program.command('list-sets')
     }
   })
 
-const saveLorcanaImage = async (directory: string, imageUrl: string) => {
-  const splitImageUrl = imageUrl.split('/');
-  const imageFilename = splitImageUrl[splitImageUrl.length - 1];
+const saveLorcanaImage = async (directory: string, card: Card) => {
+  const imageUrl = card.Image;
+  const imageFilename = `${card.Card_Num}_${card.Name.replace(/\s/g, '-')}.png`
   const response = await axios({
     method: 'get',
     url: imageUrl,
     responseType: 'stream'
   });
+  console.log(`Saving ${imageUrl} to ${imageFilename}`)
   await fs.promises.writeFile(`${directory}/${imageFilename}`, response.data);
+  await new Promise(r => setTimeout(r, 2000));
 }
 
 program.command('list-cards')
@@ -92,6 +89,7 @@ program.command('save-card-images')
     try {
       const {data: cards} = await axios.get<Card[]>(`${LORCANA_BASE}/${CARDS_PATH}`);
       const opts = options.opts();
+      console.log(opts);
       const set = opts.set ? Number(opts.set) : 1;
       const directory = opts.location ?? './lorcana-card-images'
       const cardsFromSet = cards.filter(card => card.Set_Num === set)
@@ -103,8 +101,9 @@ program.command('save-card-images')
       } else {
         console.log(`Using existing directory ${directory} to put files in`);
       }
+
       for (const card of cardsFromSet) {
-        await saveLorcanaImage(directory, card.Image);
+        await saveLorcanaImage(directory, card);
         await new Promise(r => setTimeout(r, 2000));
       }
     } catch(e) {
